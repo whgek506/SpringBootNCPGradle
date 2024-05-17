@@ -1,0 +1,78 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.5'
+    id 'io.spring.dependency-management' version '1.1.4'
+    id 'com.github.node-gradle.node' version '7.0.0' //gradle에서 npm 사용
+}
+
+group = 'org.example'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    sourceCompatibility = '17'
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-web-services'
+    compileOnly 'org.projectlombok:lombok'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    annotationProcessor 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    implementation 'io.awspring.cloud:spring-cloud-starter-aws:2.4.4'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+//React build 설정
+def reactAppDir = "${projectDir}/src/main/front"
+
+processResources {
+    dependsOn "copyReactFile" //4. 마지막에 실행
+}
+
+task copyReactFile(type: Copy) { //3. static 파일에 복사
+    dependsOn "buildReact"
+    from "$reactAppDir/build"
+    into "$projectDir/src/main/resources/static/"
+}
+
+task buildReact(type: Exec) { //2. 배포 시 내용 바뀐게 있는지 확인 후 실행
+    dependsOn "installReact"
+    workingDir "$reactAppDir"
+    inputs.dir "$reactAppDir"
+    group = BasePlugin.BUILD_GROUP
+    if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
+        commandLine "npm.cmd", "run-script", "build"
+    } else {
+        commandLine "npm", "run-script", "build"
+    }
+}
+
+task installReact(type: Exec) { //1. 가장 먼저 실행
+    workingDir "$reactAppDir"
+    inputs.dir "$reactAppDir"
+    group = BasePlugin.BUILD_GROUP
+    if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
+        commandLine "npm.cmd", "audit", "fix"
+        commandLine "npm.cmd", "install"
+    } else {
+        commandLine "npm", "audit", "fix"
+        commandLine "npm", "install"
+    }
+}
